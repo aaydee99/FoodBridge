@@ -77,24 +77,35 @@ const VegetablesScreen = () => {
   };
   const addToCart = async (itemId) => {
     if (!userID) {
-        console.log('No userID found');
-        return; // Exit if no userID is available
+      console.log('No userID found');
+      return; // Exit if no userID is available
     }
 
     const cartItemRef = doc(db, `users/${userID}/cart`, itemId); // Reference to the specific cart item
 
-    // Attempt to add or update the cart item
     try {
+      // Check if the item already exists in the cart
+      const cartItemSnapshot = await getDoc(cartItemRef);
+      if (cartItemSnapshot.exists()) {
+        // If item exists, update its quantity
+        const currentQuantity = cartItemSnapshot.data().quantity;
         await setDoc(cartItemRef, {
-            id: itemId,
-            quantity: 1 // Or your logic to increment quantity
-        }, { merge: true }); // Merge option to update the item or add if not exists
+          id: itemId,
+          quantity: currentQuantity + 1
+        }, { merge: true });
+      } else {
+        // If item does not exist, add it with a quantity of 1
+        await setDoc(cartItemRef, {
+          id: itemId,
+          quantity: 1
+        }, { merge: true });
+      }
 
-        console.log(`Item ${itemId} added/updated in cart successfully`);
+      console.log(`Item ${itemId} added/updated in cart successfully`);
     } catch (error) {
-        console.error("Error adding/updating item in cart:", error);
+      console.error("Error adding/updating item in cart:", error);
     }
-};
+  };
   return (
     <View style={styles.container}>
       {/* Header */}

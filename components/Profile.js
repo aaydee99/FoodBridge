@@ -57,19 +57,35 @@ const ProfileScreen = ({ navigation }) => {
   useEffect(() => {
     const fetchOrders = async () => {
       const ordersRef = collection(db, `users/${userId}/orders`);
-      const ordersSnapshot = await getDocs(ordersRef);
-      const fetchedOrders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      // Assuming the presence of a 'status' field to differentiate current and past orders
-      const current = fetchedOrders.filter(order => order.status === 'current');
-      const past = fetchedOrders.filter(order => order.status === 'past');
-
-      setCurrentOrders(fetchedOrders);
-      setPastOrders(fetchedOrders);
+      // Query orders and order them by timestamp
+      const q = query(ordersRef, orderBy("timestamp", "desc"));
+  
+      try {
+        const ordersSnapshot = await getDocs(q);
+        const now = new Date();
+        // Calculate the date one week ago from now
+        const oneWeekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+  
+        const fetchedOrders = ordersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          // Convert Firestore Timestamp to JavaScript Date object
+          timestamp: doc.data().timestamp.toDate()
+        }));
+  
+        // Filter orders based on whether they are newer than one week ago
+        const currentOrders = fetchedOrders.filter(order => order.timestamp > oneWeekAgo);
+        const pastOrders = fetchedOrders.filter(order => order.timestamp <= oneWeekAgo);
+  
+        setCurrentOrders(currentOrders);
+        setPastOrders(pastOrders);
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+      }
     };
-
+  
     fetchOrders();
-  }, []);
+  }, [userId]); 
 
   return (
     <ScrollView style={styles.container}>

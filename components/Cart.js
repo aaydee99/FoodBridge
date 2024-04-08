@@ -39,6 +39,7 @@ const CartScreen = () => {
         });
         const fetchedItems = (await Promise.all(cartItemsPromises)).filter(item => item);
         setCartItems(fetchedItems);
+        console.log(fetchedItems)
         console.log(cartItems)
       } else {
         console.log('User not found');
@@ -46,7 +47,7 @@ const CartScreen = () => {
     };
 
     fetchUserIdAndCartItems();
-  }, []);
+  }, [userID]);
 
   const handleProceedToCheckout = async () => {
     if (!userID) return; // Guard clause if userID isn't set

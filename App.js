@@ -88,7 +88,6 @@ function MainTabs() {
     >
       <Tab.Screen name="Home" component={HomeScreenStack} />
       <Tab.Screen name="Cart" component={CartScreen} options={{ headerShown: true }}/>
-      <Tab.Screen name="FoodCategories" component={FoodCategories} options={{headerShown: true}} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true }}/>
       
       {/* Other screens that should appear in the tab navigator go here */}

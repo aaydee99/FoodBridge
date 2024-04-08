@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { Calendar } from 'react-native-calendars';
 import {FIREBASE_DB as db } from '../firebaseConfig';
-import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, writeBatch, query, setDoc } from 'firebase/firestore';
 const ConfirmDetailsScreen = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
@@ -29,23 +29,62 @@ const ConfirmDetailsScreen = ({ navigation }) => {
       const cartSnapshot = await getDocs(cartRef);
       const cartItems = cartSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+      function generateOrderNumber() {
+        // Generate a unique order number using the current timestamp and a random number
+        const timestamp = new Date().getTime(); // Current timestamp
+        const randomNum = Math.floor(Math.random() * 1000); // Random number between 0 and 999
+        return `ORD-${timestamp}-${randomNum}`;
+      }
+
       // Create the order in Firestore
       const orderDetails = {
-        orderNumber: '123456', // Ideally, generate this dynamically
+        orderNumber: generateOrderNumber(), // Ideally, generate this dynamically
         pickUpDate: selectedDate,
         pickUpTime: selectedTimeSlot,
         location: 'South Belfast Foodbank',
         items: cartItems, // Store the entire cart items in the order
+        timestamp: serverTimestamp(),
       };
 
-      await addDoc(collection(db, `users/${userID}/orders`), orderDetails).then(()=>{
-        navigation.navigate('OrderReview', { orderDetails }); 
-      })
-        .catch((error) => {
-          console.error("Error creating the order: ", error);
-        });
-    } else {
-      alert('Please select both a date and a time slot for your pickup.');
+      const placeOrderAndEmptyCart = async (userID, orderDetails, navigation) => {
+        const ordersRef = collection(db, `users/${userID}/orders`);
+        const cartRef = collection(db, `users/${userID}/cart`);
+        
+        try {
+          // Correctly add the order details to Firestore using a specified orderNumber as the document ID
+          // We use doc() to get a reference to the specific document (with the ID being orderDetails.orderNumber)
+          // and setDoc() to actually create the document with the order details
+          const orderDocRef = doc(ordersRef, orderDetails.orderNumber);
+          await setDoc(orderDocRef, orderDetails);
+          
+          // Initialize a batch operation for cart deletion
+          const batch = writeBatch(db);
+      
+          // Retrieve all documents from the user's cart
+          const cartSnapshot = await getDocs(query(cartRef));
+          cartSnapshot.forEach((doc) => {
+            // Queue each cart item for deletion
+            batch.delete(doc.ref);
+          });
+      
+          // Commit the batch operation to delete all cart items
+          await batch.commit();
+          console.log('Cart has been emptied.');
+      
+          // Navigate to the OrderReview page after successfully placing the order and emptying the cart
+          navigation.navigate('OrderReview', { orderNumber: orderDetails.orderNumber }); 
+      
+        } catch (error) {
+          console.error("Error placing order or emptying cart:", error);
+        }
+      };
+      
+      // Assume this is called within an appropriate async function or event handler
+      try {
+        await placeOrderAndEmptyCart(userID, orderDetails, navigation);
+      } catch (error) {
+        console.error("Error creating the order: ", error);
+      }
     }
   };
 
